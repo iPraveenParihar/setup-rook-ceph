@@ -1,0 +1,33 @@
+name: Test setup-rook-ceph-cluster action
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  test-action:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy Rook Ceph cluster using action
+        uses: ./
+        with:
+          rook-version: 'v1.19.2'
+          ceph-image: 'quay.io/ceph/ceph:v20'
+
+      - name: Verify cluster is healthy
+        run: |
+          set -e
+          echo "Checking pods in rook-ceph namespace..."
+          kubectl -n rook-ceph get pods
+
+          echo "Checking CephCluster status..."
+          kubectl -n rook-ceph get cephcluster
+
+          echo "Running ceph status via toolbox..."
+          TOOLBOX=$(kubectl get pod -l app=rook-ceph-tools -n rook-ceph -o jsonpath='{.items[0].metadata.name}')
+          kubectl -n rook-ceph exec "$TOOLBOX" -- ceph -s --connect-timeout 10
+          kubectl -n rook-ceph exec "$TOOLBOX" -- ceph osd tree
